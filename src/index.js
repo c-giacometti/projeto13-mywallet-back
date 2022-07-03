@@ -4,6 +4,7 @@ import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
+import dayjs from "dayjs";
 import joi from 'joi';
 
 dotenv.config();
@@ -41,7 +42,7 @@ app.get('/sign-up', async (req, res) => {
 
     try {
         await mongoClient.connect();
-        const mywalletdb = mongoClient.db("mywallet");
+        const mywalletdb = mongoClient.db('mywallet');
 
         const user = await mywalletdb.collection('users').find().toArray();
 
@@ -61,7 +62,7 @@ app.post('/login', async (req, res) =>{
 
     try {
         await mongoClient.connect();
-        const mywalletdb = mongoClient.db("mywallet");
+        const mywalletdb = mongoClient.db('mywallet');
 
         const userExists = await mywalletdb.collection('users').findOne({ email: userLoginInfo.email });
         const correctPassword = bcrypt.compareSync(userLoginInfo.password, userExists.password);
@@ -71,10 +72,16 @@ app.post('/login', async (req, res) =>{
 
             await mywalletdb.collection('sessions').insertOne({
                 token,
-                userId: userExists._id
+                userId: userExists._id,
             });
 
-            return res.status(201).send({ token });
+            const response = {
+                token,
+                userId: userExists._id,
+                name: userExists.name
+            }
+
+            return res.status(201).send({ response });
 
         } else {
             return res.status(401).send('Senha ou email incorretos!');
@@ -83,6 +90,44 @@ app.post('/login', async (req, res) =>{
 
     catch(error){
        return res.sendStatus(500);
+    }
+
+});
+
+app.post('/register', async (req, res) => {
+
+    const register = req.body;
+    const date = dayjs().format('DD/MM');
+
+    try {
+        await mongoClient.connect();
+        const mywalletdb = mongoClient.db('mywallet');
+
+        await mywalletdb.collection('records').insertOne({...register, date: date});
+        return res.send('Registro cadastrado').status(201);
+    }
+
+    catch(error){
+        mongoClient.close();
+        return res.sendStatus(500);
+    }
+
+});
+
+app.get('/register', async (req, res) =>{
+    
+    try {
+        await mongoClient.connect();
+        const mywalletdb = mongoClient.db('mywallet');
+
+        const userRecords = await mywalletdb.collection('records').find().toArray();
+
+        res.send(userRecords).status(201);
+    }
+
+    catch(error){
+        mongoClient.close();
+        res.sendStatus(500);
     }
 
 });
