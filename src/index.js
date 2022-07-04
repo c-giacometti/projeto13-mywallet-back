@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
@@ -96,12 +96,23 @@ app.post('/login', async (req, res) =>{
 
 app.post('/register', async (req, res) => {
 
+    /* const { authorization } = req.headers;
+    const token = authorization?.replace('Bearer', '');  */
     const register = req.body;
     const date = dayjs().format('DD/MM');
+
+    /* if(!token) {
+        return res.sendStatus(401);
+    }  */
 
     try {
         await mongoClient.connect();
         const mywalletdb = mongoClient.db('mywallet');
+        /* const session = await db.collection('sessions').findOne({ token });
+
+        if(!session){
+            return res.sendStatus(401);
+        }  */
 
         await mywalletdb.collection('records').insertOne({...register, date: date});
         return res.send('Registro cadastrado').status(201);
@@ -114,13 +125,29 @@ app.post('/register', async (req, res) => {
 
 });
 
-app.get('/register', async (req, res) =>{
+app.get('/records', async (req, res) =>{
+
+    const { authorization } = req.headers;
+    const token = authorization?.replace('Bearer ', ''); 
+
+    if(!token) {
+        return res.sendStatus(401);
+    }
+
+    console.log(token) 
+
+    const {userId} = req.headers;
     
     try {
         await mongoClient.connect();
         const mywalletdb = mongoClient.db('mywallet');
-
-        const userRecords = await mywalletdb.collection('records').find().toArray();
+        const session = await db.collection('sessions').find({ token: token });
+ 
+        if(!session){
+            return res.sendStatus(401);
+        } 
+ 
+        const userRecords = await mywalletdb.collection('records').find({ userId }).toArray();
 
         res.send(userRecords).status(201);
     }
@@ -131,5 +158,16 @@ app.get('/register', async (req, res) =>{
     }
 
 });
+
+app.get('/sessions', async (req, res) => {
+
+    await mongoClient.connect();
+    const mywalletdb = mongoClient.db('mywallet');
+
+    const sessions = await mywalletdb.collection('sessions').find().toArray();
+
+    return res.send(sessions).status(201);
+}) 
+
 
 app.listen(5000);
